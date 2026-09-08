@@ -27,6 +27,7 @@
     <Compile Include="Performance\ReturnStructPartialActivePatternAnalyzer.fs" />
     <Compile Include="Performance\CombinePipedModuleFunctionsAnalyzer.fs" />
     <Compile Include="Performance\EqualsNullAnalyzer.fs" />
+    <Compile Include="Performance\NoArgFormatStringAnalyzer.fs" />
     <Compile Include="Suggestion\StructDiscriminatedUnionAnalyzer.fs" />
     <Compile Include="Style\MixedFlowDirectionAnalyzer.fs" />
   </ItemGroup>
