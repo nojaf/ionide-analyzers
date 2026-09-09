@@ -12,20 +12,32 @@ open Ionide.Analyzers.TypedOperations
 let message =
     "Format string has no format specifiers, the printf-style function adds parsing overhead for nothing."
 
-/// Maps the printf-style function to the non-format alternative. `None` means the argument itself is the fix.
+type private Replacement =
+    /// The string literal itself is the fix.
+    | Literal
+    /// A function that takes the string literal.
+    | Function of name: string
+    /// A method on the first argument (writer or builder), followed by an optional suffix.
+    | Method of name: string * suffix: string
+
+/// Maps the printf-style function to the non-format alternative.
 let private replacements =
     Map.ofList
         [
-            "sprintf", None
-            "failwithf", Some "failwith"
-            "printf", Some "stdout.Write"
-            "printfn", Some "stdout.WriteLine"
-            "eprintf", Some "stderr.Write"
-            "eprintfn", Some "stderr.WriteLine"
+            "sprintf", Literal
+            "failwithf", Function "failwith"
+            "printf", Function "stdout.Write"
+            "printfn", Function "stdout.WriteLine"
+            "eprintf", Function "stderr.Write"
+            "eprintfn", Function "stderr.WriteLine"
+            "fprintf", Method("Write", "")
+            "fprintfn", Method("WriteLine", "")
+            "bprintf", Method("Append", " |> ignore")
         ]
 
 [<Struct>]
-type private FormatCall = | FormatCall of functionIdent: Ident * formatText: string * formatRange: range * range: range
+type private FormatCall =
+    | FormatCall of functionIdent: Ident * receiver: SynExpr option * formatRange: range * range: range
 
 [<return: Struct>]
 let rec private (|ConstString|_|) =
@@ -64,16 +76,26 @@ let private analyze
             override x.WalkExpr(path, synExpr) =
                 match synExpr with
                 | SynExpr.App(ExprAtomicFlag.NonAtomic, false, PrintfFunction ident, ConstString(text, mFormat), m) when
-                    replacements.ContainsKey ident.idText && hasNoFormatSpecifiers text
+                    hasNoFormatSpecifiers text
                     ->
-                    calls.Add(FormatCall(ident, text, mFormat, m)) |> ignore
+                    match Map.tryFind ident.idText replacements with
+                    | Some(Literal | Function _) -> calls.Add(FormatCall(ident, None, mFormat, m)) |> ignore
+                    | _ -> ()
+                | SynExpr.App(ExprAtomicFlag.NonAtomic,
+                              false,
+                              SynExpr.App(ExprAtomicFlag.NonAtomic, false, PrintfFunction ident, receiver, _),
+                              ConstString(text, mFormat),
+                              m) when hasNoFormatSpecifiers text ->
+                    match Map.tryFind ident.idText replacements with
+                    | Some(Method _) -> calls.Add(FormatCall(ident, Some receiver, mFormat, m)) |> ignore
+                    | _ -> ()
                 | _ -> ()
         }
 
     walkAst collector parsedInput
 
     calls
-    |> Seq.choose (fun (FormatCall(ident, _, mFormat, m)) ->
+    |> Seq.choose (fun (FormatCall(ident, receiver, mFormat, m)) ->
         tryFSharpMemberOrFunctionOrValueFromIdent sourceText checkResults ident
         |> Option.bind (fun mfv ->
             if mfv.Assembly.SimpleName <> "FSharp.Core" || not mfv.IsFunction then
@@ -83,9 +105,21 @@ let private analyze
             let literal = (sourceText.GetSubTextFromRange mFormat).Replace("%%", "%")
 
             let toText =
-                match replacements[ident.idText] with
-                | None -> literal
-                | Some replacement -> $"%s{replacement} %s{literal}"
+                match replacements[ident.idText], receiver with
+                | Literal, _ -> literal
+                | Function name, _ -> $"%s{name} %s{literal}"
+                | Method(name, suffix), Some receiver ->
+                    let receiverText = sourceText.GetSubTextFromRange receiver.Range
+
+                    let receiverText =
+                        match receiver with
+                        | SynExpr.Ident _
+                        | SynExpr.LongIdent _
+                        | SynExpr.Paren _ -> receiverText
+                        | _ -> $"(%s{receiverText})"
+
+                    $"%s{receiverText}.%s{name} %s{literal}%s{suffix}"
+                | Method _, None -> literal
 
             Some
                 {
