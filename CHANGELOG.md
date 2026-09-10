@@ -1,10 +1,14 @@
 # Changelog
 
-## [Unreleased]
+## [0.19.0] - 2026-09-10
 
 ### Added
 
-* Create NoArgFormatStringAnalyzer, reports printf-style functions (including `fprintf`, `fprintfn` and `bprintf`) applied to a format string without format specifiers.
+* Create NoArgFormatStringAnalyzer, reports printf-style functions (including `fprintf`, `fprintfn` and `bprintf`) applied to a format string without format specifiers. [#198](https://github.com/ionide/ionide-analyzers/pull/198)
+
+### Changed
+
+* Update FSharp.Analyzers.SDK to `0.39.0`. Checkout the [release notes](https://github.com/ionide/FSharp.Analyzers.SDK/releases/tag/v0.39.0) for details. [#200](https://github.com/ionide/ionide-analyzers/pull/200)
 
 ## [0.18.0] - 2026-09-08
 
