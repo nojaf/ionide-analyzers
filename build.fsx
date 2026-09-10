@@ -1,4 +1,6 @@
-#r "nuget: Fun.Build, 1.0.3"
+#!/usr/bin/env -S dotnet fsi --
+
+#r "nuget: Fun.Build, 1.1.18"
 #r "nuget: Fake.IO.FileSystem, 6.0.0"
 #r "nuget: NuGet.Protocol, 7.9.0"
 #r "nuget: Ionide.KeepAChangelog, 0.1.8"
@@ -70,7 +72,15 @@ pipeline "Docs" {
                 "DOTNET_ROLL_FORWARD", "LatestMajor"
             |]
         run "dotnet tool restore"
-        run "dotnet fsdocs watch --port 7890"
+        run (fun ctx ->
+            let extraArgs =
+                fsi.CommandLineArgs
+                |> Array.skipWhile (fun arg -> arg <> "Docs")
+                |> Array.skip 1
+                |> String.concat " "
+
+            ctx.RunCommand $"dotnet fsdocs watch --port 7890 %s{extraArgs}"
+        )
     }
     runIfOnlySpecified true
 }

@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+* Create NoArgFormatStringAnalyzer, reports printf-style functions (including `fprintf`, `fprintfn` and `bprintf`) applied to a format string without format specifiers.
+
 ## [0.18.0] - 2026-09-08
 
 ### Changed
