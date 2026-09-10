@@ -43,7 +43,7 @@ pipeline "Build" {
     }
     stage "lint" {
         run "dotnet tool restore"
-        run "dotnet fantomas . --check"
+        run "dotnet fantomas check"
     }
     stage "restore" { run "dotnet restore" }
     stage "build" {
@@ -93,7 +93,8 @@ let getLatestPublishedNugetVersion packageName =
         let cache = new SourceCacheContext()
         let repository = Repository.Factory.GetCoreV3("https://api.nuget.org/v3/index.json")
         let! resource = repository.GetResourceAsync<FindPackageByIdResource>()
-        let! versions = resource.GetAllVersionsAsync(packageName, cache, logger, cancellationToken)
+        let! versions =
+            resource.GetAllVersionsAsync(packageName, cache, logger, cancellationToken)
         if Seq.isEmpty versions then
             return None
         else
@@ -290,7 +291,8 @@ pipeline "Release" {
 
                 let currentVersion = getLatestChangeLogVersion ()
                 let currentVersionText, _, _ = currentVersion
-                let! latestNugetVersion = getLatestPublishedNugetVersion "Ionide.Analyzers" |> Async.AwaitTask
+                let! latestNugetVersion =
+                    getLatestPublishedNugetVersion "Ionide.Analyzers" |> Async.AwaitTask
                 match latestNugetVersion with
                 | None ->
                     let! nugetResult = releaseNuGetPackage commandRunner currentVersion
